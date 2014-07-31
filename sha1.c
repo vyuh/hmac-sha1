@@ -28,43 +28,49 @@ b8 *rd32be(b32 *n, b8 *msg) {
     *n |= *msg;  return ++msg;
 } //libpk
 
-int sha1(b8 * msg, b32 n_bits[2], b32 hash[5]) {
+int sha1(b8 * msg, b32 bits, b32 hash[5]) {
     b32 a[5];
     b32 h[5]={ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0};
     b32 w[80];
-    b32 left[2];
+    static b32 len[2] = {0};
     int i, j, b;
 
-    left[0]=n_bits[0];
-    left[1]=n_bits[1];
+    len[0]+=bits; if(len[0]<bits) len[1]++;
 
-    while(left[1]||(left[0]>512)) {
+    while(bits>=512) {
         for(i=0; i<16; i++) msg=rd32be(w+i,msg);
         grind(w,a,h);
-        left[0]-=512;
-        if (left[0]>512){
-            left[1]--;
-	    if (left[1]>1) die("underflow\n");
-        }
+        bits-=512;
     }
 
-    j=left[0]/32; b=left[0];
-    for(i=0; i<j; i++) msg=rd32be(w+i,msg);
-    left[0]-=j*32;
-    w[i]= 1 << (31 - left[0]);
-    if (b > 0) { w[i] |= *msg << 24; ++msg; b-=8;}
-    if (b > 0) { w[i] |= *msg << 16; ++msg; b-=8;}
-    if (b > 0) { w[i] |= *msg << 8; ++msg; b-=8;}
-    if (b > 0) { w[i] |= *msg; ++msg; b-=8;}
-    w[i]&= 0xffffffff << (31 - left[0]); i++;
-    if(j>=14) {
-        if(i==15) w[15]=0;
-        grind(w,a,h);
-        i=0;
+    if (bits) {
+        if (bits>=32) {
+            for(i=0, j=bits/32; i<j; i++) msg=rd32be(w+i,msg);
+            bits%=32;
+        }
+        w[i]= 1 << (31 - bits);
+        w[i] |= *msg << 24; ++msg; bits-=8;
+        if (bits) {
+            w[i] |= *msg << 16; ++msg; bits-=8;
+            if (bits) {
+                w[i] |= *msg << 8; ++msg; bits-=8;
+                if (bits) {
+                    w[i] |= *msg; ++msg; bits-=8;
+                }
+            }
+        }
+       //TODO Thu Jul 31 21:25:17 IST 2014 pk was here
+    
+        w[i]&= 0xffffffff << (31 - bits); i++;
+        if(j>=14) {
+            if(i==15) w[15]=0;
+            grind(w,a,h);
+            i=0;
+        }
     }
     for(;i<14;i++) w[i]=0;
-    w[i]=n_bits[1]; i++;
-    w[i]=n_bits[0];
+    w[i]=len[1]; i++;
+    w[i]=len[0];
     grind(w,a,h);
     for(i=0; i<5; i++) hash[i]=h[i];
     return 0;
