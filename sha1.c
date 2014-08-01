@@ -34,7 +34,7 @@ int sha1(b8 * msg, b32 bits, b32 hash[5]) {
     b32 w[80];
     static b32 len[2] = {0};
     int i, j, b;
-
+//TODO reset statics when msg is null
     len[0]+=bits; if(len[0]<bits) len[1]++;
 
     while(bits>=512) {
@@ -44,29 +44,34 @@ int sha1(b8 * msg, b32 bits, b32 hash[5]) {
     }
 
     if (bits) {
-        if (bits>=32) {
-            for(i=0, j=bits/32; i<j; i++) msg=rd32be(w+i,msg);
+        if (j=bits/32) {
+            for(i=0; i<j; i++) msg=rd32be(w+i,msg);
             bits%=32;
         }
+        b=bits;
         w[i]= 1 << (31 - bits);
-        w[i] |= *msg << 24; ++msg; bits-=8;
-        if (bits) {
-            w[i] |= *msg << 16; ++msg; bits-=8;
-            if (bits) {
-                w[i] |= *msg << 8; ++msg; bits-=8;
-                if (bits) {
-                    w[i] |= *msg; ++msg; bits-=8;
+        w[i] |= *msg << 24; ++msg; b-=8;
+        if (b>0) {
+            w[i] |= *msg << 16; ++msg; b-=8;
+            if (b>0) {
+                w[i] |= *msg << 8; ++msg; b-=8;
+                if (b>0) {
+                    w[i] |= *msg; ++msg; b-=8;
                 }
             }
         }
-       //TODO Thu Jul 31 21:25:17 IST 2014 pk was here
     
-        w[i]&= 0xffffffff << (31 - bits); i++;
+        w[i]&=0xffffffff << (31 - bits); i++;
         if(j>=14) {
             if(i==15) w[15]=0;
             grind(w,a,h);
             i=0;
         }
+    
+    } else {
+        if(!hash) return 1;
+        w[0]=0x80000000;
+        i=1;
     }
     for(;i<14;i++) w[i]=0;
     w[i]=len[1]; i++;
@@ -74,7 +79,6 @@ int sha1(b8 * msg, b32 bits, b32 hash[5]) {
     grind(w,a,h);
     for(i=0; i<5; i++) hash[i]=h[i];
     return 0;
-
 }
 
 b32 f(b32 t, b32 *a, b32 *w){
