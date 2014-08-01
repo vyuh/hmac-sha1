@@ -34,7 +34,17 @@ int sha1(b8 * msg, b32 bits, b32 hash[5]) {
     b32 w[80];
     static b32 len[2] = {0};
     int i, j, b;
-//TODO reset statics when msg is null
+
+    if(!msg) {
+        h[0]=0x67452301;
+        h[1]=0xefcdab89;
+        h[2]=0x98badcfe;
+        h[3]=0x10325476;
+        h[4]=0xc3d2e1f0;
+        len[0]=0;
+        len[1]=0;
+    }
+
     len[0]+=bits; if(len[0]<bits) len[1]++;
 
     while(bits>=512) {
@@ -128,11 +138,8 @@ int grind(b32 *w, b32 *a, b32 *h){
 
 
 int main(int argc, char **argv){
-   b32 l[2];
    b32 hash[5];
-   l[0]=16;
-   l[1]=0;
-   sha1("hi", l, hash);
+   sha1("hi", 16, hash);
    rpr(hash);
    return 0;
 }
