@@ -1,8 +1,7 @@
 typedef struct {
     unsigned char *d;
-    unsigned type;
-    unsigned l[2];
-} str;
+    unsigned l;
+} bitstr;
 
 #include <string.h>
 
@@ -14,18 +13,17 @@ b8 *wr32be(b32 n, b8 *msg) {
     *msg = n & mask;  return ++msg;
 } //libpk
 
-int hmac_sha1(str *key, str *msg, unsigned *code){
+int hmac_sha1(bitstr *key, bitstr *msg, unsigned *code){
     unsigned k[16] = { 0 };
     unsigned o[16], i[16];
     unsigned x;
-    str fin;
+    bitstr fin;
 
 
-    if(((key->l[1]||key->l[0] > 64))) {
-        sha1(key->d, key->l , k); // FIXME: key->l = nbyte. sha1 expects nbits
+    if(key->l > 512) {
+        sha1(key->d, key->l, k); 
         for(x=0; x<5; x++) wr32be(k[i], k+i); //FIXME: if wr32be works not
-    }
-    else memcpy(k, key->d, key->l[0]);
+    } else memcpy(k, key->d, key->l/8 + 1);
 
     for(x=0;x<16; x++) {
         o[x]=0x5c5c5c5c ^ k[x];
@@ -33,6 +31,6 @@ int hmac_sha1(str *key, str *msg, unsigned *code){
     }
 
     fin.l[1]=msg->l[1];
-    fin.l[0]=msg->l[0]+
+    fin.l[0]=msg->l[0]+ //TODO a good way to handle large msgs 
     fin.d = malloc(
     
