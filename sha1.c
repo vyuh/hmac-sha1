@@ -28,37 +28,65 @@ b8 *rd32be(b32 *n, b8 *msg) {
     *n |= *msg;  return ++msg;
 } //libpk
 
-int sha1(b8 * msg, b32 bits, b32 hash[5]) {
-    b32 a[5];
-    b32 h[5]={ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0};
+    // do this outside b32 h[5]={ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0};
+int sha1(bitstr *msg, hsh *h){
+    int i;
+    bitstr p;
+
+
+    h->h[0]=0x67452301;
+    h->h[1]=0xefcdab89;
+    h->h[2]=0x98badcfe;
+    h->h[3]=0x10325476;
+    h->h[4]=0xc3d2e1f0;
+    h->l[0]=0;
+    h->l[1]=0;
+
+    p=*msg;
+    while(p->l[1]||(p->l[0] >= 512)) { 
+        sha1_nxt(p->d, 512, h); //FIXME check return value?
+        p->d+=512;
+        if(p->l[0] < 512) {
+            if(p->l[1]) {
+                p->l[1]--;
+            } else return 1; //length underflow; FIXME redundant?
+        }
+        p->l[0]-=512; 
+    }
+    sha_end(p->d, p->l[0], h); //FIXME check return value?
+    return 0;
+}
+
+int sha1_nxt(b8 * msg, b32 bits, hsh *h) {
     b32 w[80];
-    static b32 len[2] = {0};
     int i, j, b;
 
-    if(!msg) {
-        h[0]=0x67452301;
-        h[1]=0xefcdab89;
-        h[2]=0x98badcfe;
-        h[3]=0x10325476;
-        h[4]=0xc3d2e1f0;
-        len[0]=0;
-        len[1]=0;
-    }
+    if(bits!=512) return 1; // bad length
+    h->l[0]+=bits; if(h->l[0]<bits) h->l[1]++;
+    if(!(h->l[1])) return 2; // msg size overflow
+    for(i=0; i<16; i++) msg=rd32be(w+i,msg);
+    grind(w,h->h);
+    return 0;
+}
 
-    len[0]+=bits; if(len[0]<bits) len[1]++;
 
-    while(bits>=512) {
-        for(i=0; i<16; i++) msg=rd32be(w+i,msg);
-        grind(w,a,h);
-        bits-=512;
-    }
+typedef struct {
+    b32 h[5];
+    b32 l[2];
+} hsh;
 
-    if (bits) {
-        if (j=bits/32) {
+int sha1_end(b8 * msg, b32 bits, hsh *h) {
+    b32 w[80];
+    int i, j, b;
+    if (bits>=512) return 1; //cant end with this chunk size
+    if (bits) { //do incomplete chunk
+        h->l[0]+=bits; if(h->l[0]<bits) h->l[1]++;
+        if(!(h->l[1])) return 2; // msg size overflow
+        if (j=bits/32) { //do all complete words
             for(i=0; i<j; i++) msg=rd32be(w+i,msg);
             bits%=32;
         }
-        b=bits;
+        b=bits;//do final word
         w[i]= 1 << (31 - bits);
         w[i] |= *msg << 24; ++msg; b-=8;
         if (b>0) {
@@ -70,24 +98,20 @@ int sha1(b8 * msg, b32 bits, b32 hash[5]) {
                 }
             }
         }
-    
         w[i]&=0xffffffff << (31 - bits); i++;
         if(j>=14) {
             if(i==15) w[15]=0;
-            grind(w,a,h);
+            grind(w,h->h);
             i=0;
         }
     
-    } else {
-        if(!hash) return 1;
+    } else { //add final chunk having length
         w[0]=0x80000000;
         i=1;
     }
-    for(;i<14;i++) w[i]=0;
-    w[i]=len[1]; i++;
-    w[i]=len[0];
-    grind(w,a,h);
-    for(i=0; i<5; i++) hash[i]=h[i];
+    for(;i<14;i++) w[i]=0; //fill with zero, leave 64 bits
+    w[i]=h->l[1]; i++; w[i]=h->l[0]; // fill last 64 bits with length
+    grind(w, h->h);
     return 0;
 }
 
@@ -116,8 +140,9 @@ b32 f(b32 t, b32 *a, b32 *w){
     return temp;
 }
 
-int grind(b32 *w, b32 *a, b32 *h){
+int grind(b32 *w, b32 *h){
     b32 t, temp;
+    b32 a[5];
     for(t=16; t<80; t++) {
         temp = w[t-3]^w[t-8]^w[t-14]^w[t-16];
         w[t] = (temp << 1) | (temp >> 31);

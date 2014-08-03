@@ -1,6 +1,6 @@
 typedef struct {
     unsigned char *d;
-    unsigned l;
+    unsigned l[2];
 } bitstr;
 
 #include <string.h>
@@ -20,7 +20,9 @@ int hmac_sha1(bitstr *key, bitstr *msg, unsigned *code){
     bitstr fin;
 
 
-    if(key->l > 512) {
+    if(key->[1] || (key->l[0] > 512)) {
+        //TODO int sha1(bitstr msg, b32 hash[5]);
+        //TODO rename the current sha1() to sha1_small
         sha1(key->d, key->l, k); 
         for(x=0; x<5; x++) wr32be(k[i], k+i); //FIXME: if wr32be works not
     } else memcpy(k, key->d, key->l/8 + 1);
