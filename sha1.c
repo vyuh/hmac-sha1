@@ -137,6 +137,7 @@ int sha1_end(b8 * msg, b32 bits, hsh *h) {
     for(;i<14;i++) w[i]=0; //fill with zero, leave 64 bits
     w[i]=h->l[1]; i++; w[i]=h->l[0]; // fill last 64 bits with length
     grind(w, h->h);
+    h->l[0]=0; h->l[1]=0;
     return 0;
 }
 
