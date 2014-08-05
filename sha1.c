@@ -29,10 +29,19 @@ b8 *rd32be(b32 *n, b8 *msg) {
 } //libpk
 
     // do this outside b32 h[5]={ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0};
-int sha1(bitstr *msg, hsh *h){
-    int i;
-    bitstr p;
 
+typedef struct {
+    unsigned char *d;
+    unsigned l[2];
+} bitstr;
+
+
+typedef struct {
+    b32 h[5];
+    b32 l[2];
+} hsh;
+
+int hsh_rst(hsh *h) {
 
     h->h[0]=0x67452301;
     h->h[1]=0xefcdab89;
@@ -42,19 +51,34 @@ int sha1(bitstr *msg, hsh *h){
     h->l[0]=0;
     h->l[1]=0;
 
+    return 0;
+
+}
+
+int sha1_finish(bitstr *msg, hsh *h){
+    bitstr p;
+
     p=*msg;
-    while(p->l[1]||(p->l[0] >= 512)) { 
-        sha1_nxt(p->d, 512, h); //FIXME check return value?
-        p->d+=512;
-        if(p->l[0] < 512) {
-            if(p->l[1]) {
-                p->l[1]--;
+    while(p.l[1]||(p.l[0] >= 512)) { 
+        sha1_nxt(p.d, 512, h); //FIXME check return value?
+        p.d+=512;
+        if(p.l[0] < 512) {
+            if(p.l[1]) {
+                p.l[1]--;
             } else return 1; //length underflow; FIXME redundant?
         }
-        p->l[0]-=512; 
+        p.l[0]-=512; 
     }
-    sha_end(p->d, p->l[0], h); //FIXME check return value?
+    sha1_end(p.d, p.l[0], h); //FIXME check return value?
     return 0;
+}
+    
+int sha1(bitstr *msg, hsh *h){
+    int i;
+    bitstr p;
+
+    hsh_rst(h);
+    return sha1_finish(msg, h);
 }
 
 int sha1_nxt(b8 * msg, b32 bits, hsh *h) {
@@ -62,26 +86,27 @@ int sha1_nxt(b8 * msg, b32 bits, hsh *h) {
     int i, j, b;
 
     if(bits!=512) return 1; // bad length
-    h->l[0]+=bits; if(h->l[0]<bits) h->l[1]++;
-    if(!(h->l[1])) return 2; // msg size overflow
+    h->l[0]+=bits;
+    if(h->l[0]<bits) {
+        h->l[1]++;
+        if(!(h->l[1])) return 2;
+    } // msg size overflow
     for(i=0; i<16; i++) msg=rd32be(w+i,msg);
     grind(w,h->h);
     return 0;
 }
 
 
-typedef struct {
-    b32 h[5];
-    b32 l[2];
-} hsh;
-
 int sha1_end(b8 * msg, b32 bits, hsh *h) {
     b32 w[80];
     int i, j, b;
     if (bits>=512) return 1; //cant end with this chunk size
     if (bits) { //do incomplete chunk
-        h->l[0]+=bits; if(h->l[0]<bits) h->l[1]++;
-        if(!(h->l[1])) return 2; // msg size overflow
+        h->l[0]+=bits;
+        if(h->l[0]<bits) {
+            h->l[1]++;
+            if(!(h->l[1])) return 2;
+        } // msg size overflow
         if (j=bits/32) { //do all complete words
             for(i=0; i<j; i++) msg=rd32be(w+i,msg);
             bits%=32;
@@ -164,8 +189,16 @@ int grind(b32 *w, b32 *h){
 
 int main(int argc, char **argv){
    b32 hash[5];
-   sha1("hi", 16, hash);
-   rpr(hash);
+   char *msg = "hi";
+   bitstr m;
+   hsh h;
+   
+   m.d=msg;
+   m.l[0]=16;
+   m.l[1]=0;
+
+   sha1(&m, &h);
+   rpr(h.h);
    return 0;
 }
 /* rfc3174 
