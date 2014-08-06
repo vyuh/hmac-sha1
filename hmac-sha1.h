@@ -13,13 +13,6 @@ int die(char *msg) {
     exit(0);
 } //libpk
 
-b8 *wr32be(b32 n, b8 *msg) {
-    b32 mask = 0xff;
-    *msg = n >> 24; ++msg;
-    *msg = (n >> 16) & mask; ++msg;
-    *msg = (n >> 8) & mask; ++msg;
-    *msg = n & mask;  return ++msg;
-} //unused libpk
 
 b8 *rd32be(b32 *n, b8 *msg) {
     *n = *msg << 24; ++msg;
@@ -99,7 +92,7 @@ int sha1_nxt(b8 * msg, b32 bits, hsh *h) {
 
 int sha1_end(b8 * msg, b32 bits, hsh *h) {
     b32 w[80];
-    int i, j, b;
+    int i=0, j, b;
     if (bits>=512) return 1; //cant end with this chunk size
     if (bits) { //do incomplete chunk
         h->l[0]+=bits;
@@ -187,24 +180,50 @@ int grind(b32 *w, b32 *h){
 }
 
 
-
-int main(int argc, char **argv){
-   b32 hash[5];
-   char *msg = "hi";
-   bitstr m;
-   hsh h;
-   
-   m.d=msg;
-   m.l[0]=16;
-   m.l[1]=0;
-
-   sha1(&m, &h);
-   rpr(h.h);
-   return 0;
-}
 /* rfc3174 
 it all boiled down to reading big endian numbers correctly ;)
 and realizing the you are not writing anything in big endian form :P
 
 Wed Jul 16 00:32:21 IST 2014
 */
+
+
+b8 *wr32be(b32 n, b8 *msg) {
+    b32 mask = 0xff;
+    *msg = n >> 24; ++msg;
+    *msg = (n >> 16) & mask; ++msg;
+    *msg = (n >> 8) & mask; ++msg;
+    *msg = n & mask;  return ++msg;
+} //libpk
+
+int hmac_sha1(bitstr *key, bitstr *msg, unsigned mac[5]){
+    unsigned k[16] = { 0 };
+    unsigned o[16], i[16];
+    unsigned x;
+    hsh h, fin;
+
+
+    if(key->l[1]||key->l[0] > 512) {
+        sha1(key, &h); 
+        for(x=0; x<5; x++) wr32be(h.h[x], k+x); //FIXME: if wr32be works not
+    } else memcpy(k, key->d, key->l[0]/8 + (key->l[0]%8 && 1));
+
+    for(x=0;x<16; x++) {
+        o[x]=0x5c5c5c5c ^ k[x];
+        i[x]=0x36363636 ^ k[x];
+    }
+
+    
+    hsh_rst(&h);
+    sha1_nxt(i, 512, &h);
+    sha1_finish(msg, &h);
+    for(x=0; x<5; x++) wr32be(h.h[x], h.h+x); //FIXME: if wr32be works not
+    hsh_rst(&fin);
+    sha1_nxt(o, 512, &fin);
+    sha1_end(h.h, 160, &fin);
+ 
+    for(x=0; x<5; x++) mac[x]=fin.h[x];
+    return 0;
+
+}
+        
