@@ -1,1 +1,3 @@
 generate HMAC-SHA1 for messages
+
+direct from http://tools.ietf.org/html/rfc3174
