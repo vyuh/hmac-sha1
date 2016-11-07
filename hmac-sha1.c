@@ -211,7 +211,7 @@ int grind (b32 * w, b32 * h) {
 }
 
 
-/* rfc3174 
+/* rfc3174
 it all boiled down to reading big endian numbers correctly ;)
 and realizing the you are not writing anything in big endian form :P
 
