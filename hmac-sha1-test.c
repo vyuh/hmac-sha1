@@ -4,8 +4,12 @@ int main (int argc, char **argv) {
   char *msg = "hi";
   bitstr m;
 
+  if (argc>1) {
+    msg = argv[1];
+  }
+
   m.d = msg;
-  m.l[0] = 16;
+  m.l[0] = 8*strlen(msg);
   m.l[1] = 0;
 
   hmac_sha1 (&m, &m, hash);
