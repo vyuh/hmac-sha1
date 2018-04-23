@@ -60,7 +60,7 @@ int sha1_finish (bitstr * msg, hsh * h) {
   p = *msg;
   while (p.l[1] || (p.l[0] >= 512)) {
     sha1_nxt (p.d, 512, h);     /* FIXME check return value? */
-    p.d += 512;
+    p.d += 64;
     if (p.l[0] < 512) {
       if (p.l[1]) {
         p.l[1]--;
